@@ -1,6 +1,6 @@
 " Vim global plugin for providing templates for new files
 " Licence:     The MIT License (MIT)
-" Commit:      d3682469538340454d1e11d143735683cc75a13a
+" Commit:      6f4bad6cf63716add17437b530f57f30bfe97a7e
 " {{{ Copyright (c) 2015 Aristotle Pagaltzis <pagaltzis@gmx.de>
 " 
 " Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -22,29 +22,22 @@
 " THE SOFTWARE.
 " }}}
 
-if exists( 'g:loaded_template' ) | finish | endif
-let g:loaded_template = 1
+if v:version < 700
+	echoerr printf('Vim 7 is required for templates plugin (this is only %d.%d)',v:version/100,v:version%100)
+	finish
+endif
 
-augroup template
-	autocmd!
-	autocmd FileType * if line2byte( line( '$' ) + 1 ) == -1 | call s:loadtemplate( &filetype ) | endif
+let g:templates_empty_files = get(g:, 'templates_empty_files', 0)
+
+augroup Templates
+autocmd!
+autocmd FileType * if s:isnewfile() | call s:loadtemplate( &filetype ) | endif
 augroup END
 
-function! s:globpathlist( path, ... )
-	let i = 1
-	let result = a:path
-	while i <= a:0
-		let result = substitute( escape( globpath( result, a:{i} ), ' ,\' ), "\n", ',', 'g' )
-		if strlen( result ) == 0 | return '' | endif
-		let i = i + 1
-	endwhile
-	return result
-endfunction
-
 function! s:loadtemplate( filetype )
-	let templatefile = matchstr( s:globpathlist( &runtimepath, 'templates', a:filetype ), '\(\\.\|[^,]\)*', 0 )
-	if strlen( templatefile ) == 0 | return | endif
-	silent execute 1 'read' templatefile
+	let templates = split( globpath( &runtimepath, 'templates/' . a:filetype ), "\n" )
+	if len( templates ) == 0 | return | endif
+	silent execute 1 'read' templates[0]
 	1 delete _
 	if search( 'cursor:', 'W' )
 		let cursorline = strpart( getline( '.' ), col( '.' ) - 1 )
@@ -59,4 +52,11 @@ function! s:loadtemplate( filetype )
 	set nomodified
 endfunction
 
+function! s:isnewfile()
+	return ( has('byte_offset') ? line2byte(1) == -1 : getline(1,2) == [''] )
+		\ && ! &modified && ( g:templates_empty_files || ! filereadable(bufname('')) )
+endfunction
+
 command -nargs=1 New new | set ft=<args>
+
+" vim:foldmethod=marker
